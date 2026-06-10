@@ -1,6 +1,6 @@
 # github-contribution-log
 
-# Contribution [#]: [Issue Title]
+# Contribution [1]: [DevTask: Build Resource Hub Data Center Functionality]
 
 **Contribution Number:** 1
 **Student:** Parker Cassar 
