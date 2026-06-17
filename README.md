@@ -1,19 +1,19 @@
 # github-contribution-log
 
-# Contribution [1]: [DevTask: Build Resource Hub Data Center Functionality]
+# Contribution [1]: Inconsistent reference-file naming — drop leftover global numeric prefixes
 
 **Contribution Number:** 1
-**Student:** Parker Cassar 
-**Issue:** https://github.com/issues/assigned?issue=shamilahmdt%7Cdevtasks%7C171
-**Status:** Phase I
+**Student:** Parker Cassar
+**Issue:** https://github.com/sebastian-software/skills/issues/10
+**Status:** Phase I — Issue Selection
 
 ---
 
 ## Why I Chose This Issue
 
-I chose this issue because it covers a complete feature end to end. Rather than a small isolated fix, it involves data handling, validation, UI work and user feedback all in one scope, which gives me a clear picture of how the different pieces of the Resource Hub fit together.
+I chose this issue because it has a clear, well-defined scope: rename leftover numeric-prefixed reference files to descriptive kebab-case and update the corresponding links in each `SKILL.md`. The maintainer has already documented the problem, listed affected files, and described the validation step (`pnpm skill-sync validate`), which makes it a strong fit for getting started in a new repository.
 
-It will be a good match for my background. I already have React and Tailwind experience to lean on, while the FileReader API and local storage workflows are areas I haven't used much before, so the issue will let me contribute confidently while still picking up something new.
+It is labeled `good first issue` and `enhancement`, so the work is mechanical rather than architectural — a good way to learn the repo's skill structure and contribution workflow without needing deep domain knowledge upfront. I also commented on the issue to claim it and am waiting for assignment.
 
 ---
 
@@ -21,19 +21,34 @@ It will be a good match for my background. I already have React and Tailwind exp
 
 ### Problem Description
 
-[In your own words, what's broken or missing?]
+When the original monolithic skill set was split into separate skills, most reference files were renamed to clean, descriptive kebab-case (e.g. `component-api-design.md`). Fifteen internal skills still carry global numeric prefixes from the old monolith (ranging from `01` to `36`). Those numbers no longer mean anything now that each skill lives in its own directory.
 
 ### Expected Behavior
 
-[What should happen?]
+Reference files should use descriptive kebab-case names only — no leading numeric prefixes. For example, `23-html-accessibility.md` should become `html-accessibility.md`.
 
 ### Current Behavior
 
-[What actually happens?]
+Fifteen skills still have prefixed reference files under their `references/` directories. Examples:
+
+- `s7n-accessibility-html/references/23-html-accessibility.md`
+- `s7n-auth-security-ux/references/34-auth-web-security.md`
+- `s7n-forms-ux/references/24-forms-ux.md`
+- `s7n-css-architecture/references/33-baseline-support.md`, `36-css-build-tooling.md`
+- `s7n-layout-spacing/references/26-responsive-design.md`, `27-css-layout-responsive.md`
+
+Newer skills already follow the target convention, e.g. `s7n-react-component/references/component-api-design.md`.
 
 ### Affected Components
 
-[Which parts of the codebase are involved?]
+- 15 skill directories with `references/` files that still use numeric prefixes
+- Corresponding `SKILL.md` files that link to those reference paths
+
+### Suggested Fix (from issue)
+
+1. Rename each numeric-prefixed file to its kebab-case equivalent (drop the leading number and hyphen).
+2. Update every matching link in the affected `SKILL.md` files.
+3. Run `pnpm skill-sync validate` to confirm no dangling reference links remain.
 
 ---
 
@@ -41,13 +56,11 @@ It will be a good match for my background. I already have React and Tailwind exp
 
 ### Environment Setup
 
-[Notes on setting up your local development environment - challenges you faced, how you solved them]
+[Not started — Phase II]
 
 ### Steps to Reproduce
 
-1. [Step 1]
-2. [Step 2]
-3. [Observed result]
+[Not started — Phase II]
 
 ### Reproduction Evidence
 
@@ -61,11 +74,11 @@ It will be a good match for my background. I already have React and Tailwind exp
 
 ### Analysis
 
-[Your analysis of the root cause - what's causing the issue?]
+[Not started — Phase II]
 
 ### Proposed Solution
 
-[High-level description of your fix approach]
+[Not started — Phase II]
 
 ### Implementation Plan
 
@@ -82,7 +95,7 @@ Using UMPIRE framework (adapted):
 
 **Implement:** [Link to your branch/commits as you work]
 
-**Review:** [Self-review checklist - does it follow the project's contribution guidelines?]
+**Review:** [Self-review checklist — does it follow the project's contribution guidelines?]
 
 **Evaluate:** [How will you verify it works?]
 
@@ -109,11 +122,13 @@ Using UMPIRE framework (adapted):
 
 ## Implementation Notes
 
+### Week 1 Progress (Phase I)
+
+- Selected issue [#10](https://github.com/sebastian-software/skills/issues/10) in `sebastian-software/skills`
+- Commented on the issue to request assignment
+- Created this Contribution README
+
 ### Week [X] Progress
-
-[What you built this week, challenges faced, decisions made]
-
-### Week [Y] Progress
 
 [Continue documenting as you work]
 
@@ -129,7 +144,7 @@ Using UMPIRE framework (adapted):
 
 **PR Link:** [GitHub PR URL when submitted]
 
-**PR Description:** [Draft or final PR description - much of the content above can be adapted]
+**PR Description:** [Draft or final PR description — much of the content above can be adapted]
 
 **Maintainer Feedback:**
 - [Date]: [Summary of feedback received]
@@ -157,6 +172,5 @@ Using UMPIRE framework (adapted):
 
 ## Resources Used
 
-- [Link to helpful documentation]
-- [Tutorial or Stack Overflow post that helped]
-- [GitHub issues or discussions that helped]
+- [Issue #10 — Inconsistent reference-file naming](https://github.com/sebastian-software/skills/issues/10)
+- [sebastian-software/skills repository](https://github.com/sebastian-software/skills)
