@@ -1,19 +1,20 @@
 # github-contribution-log
 
-# Contribution [1]: Inconsistent reference-file naming — drop leftover global numeric prefixes
+# Contribution [1]: PyArrow fails to cast UUID FIXED_LEN_BYTE_ARRAY back to `uuid.UUID` on Python 3.14
 
 **Contribution Number:** 1
 **Student:** Parker Cassar
-**Issue:** https://github.com/sebastian-software/skills/issues/10
+**Issue:** https://github.com/apache/arrow/issues/50312
+**Fork:** https://github.com/parker-cassar/arrow
 **Status:** Phase I — Issue Selection
 
 ---
 
 ## Why I Chose This Issue
 
-I chose this issue because it has a clear, well-defined scope: rename leftover numeric-prefixed reference files to descriptive kebab-case and update the corresponding links in each `SKILL.md`. The maintainer has already documented the problem, listed affected files, and described the validation step (`pnpm skill-sync validate`), which makes it a strong fit for getting started in a new repository.
+I chose this issue because it's a self-contained regression with a precise, minimal reproduction already provided by the reporter (write a `uuid.UUID` to Parquet, read it back, check the Python type). That makes it a strong first issue: I don't have to hunt for a repro case, I just need to understand why the read-back cast behaves differently across Python versions.
 
-It is labeled `good first issue` and `enhancement`, so the work is mechanical rather than architectural — a good way to learn the repo's skill structure and contribution workflow without needing deep domain knowledge upfront. I also commented on the issue to claim it and am waiting for assignment.
+It also touches an area — PyArrow's Python/C++ boundary for extension-type casting — that I haven't worked in before, so it's a good opportunity to learn how PyArrow bridges Arrow's columnar types back to native Python objects. I commented on the issue committing to attempt a fix within 24 hours, so I want to move quickly through reproduction and planning.
 
 ---
 
@@ -21,34 +22,46 @@ It is labeled `good first issue` and `enhancement`, so the work is mechanical ra
 
 ### Problem Description
 
-When the original monolithic skill set was split into separate skills, most reference files were renamed to clean, descriptive kebab-case (e.g. `component-api-design.md`). Fifteen internal skills still carry global numeric prefixes from the old monolith (ranging from `01` to `36`). Those numbers no longer mean anything now that each skill lives in its own directory.
+PyArrow stores `uuid.UUID` values written via `pa.Table.from_pandas` as a `FIXED_LEN_BYTE_ARRAY` (16 bytes) in Parquet. On read-back, PyArrow is expected to cast that fixed-length byte array back into `uuid.UUID` objects. On Python 3.14 / nightly builds, that cast is not happening — the reader instead returns raw `bytes`.
 
 ### Expected Behavior
 
-Reference files should use descriptive kebab-case names only — no leading numeric prefixes. For example, `23-html-accessibility.md` should become `html-accessibility.md`.
+Reading a Parquet file written from a `uuid.UUID` column should yield `uuid.UUID` objects in the resulting pandas DataFrame, regardless of Python version — matching the behavior on Python 3.13 and earlier.
 
 ### Current Behavior
 
-Fifteen skills still have prefixed reference files under their `references/` directories. Examples:
+On Python 3.14 / nightly builds, `type(result_df.loc[0, "id"])` returns `bytes` instead of `uuid.UUID`. On Python 3.13 and below, the same code correctly returns `uuid.UUID`. This is a regression specific to newer Python builds, not a general PyArrow bug.
 
-- `s7n-accessibility-html/references/23-html-accessibility.md`
-- `s7n-auth-security-ux/references/34-auth-web-security.md`
-- `s7n-forms-ux/references/24-forms-ux.md`
-- `s7n-css-architecture/references/33-baseline-support.md`, `36-css-build-tooling.md`
-- `s7n-layout-spacing/references/26-responsive-design.md`, `27-css-layout-responsive.md`
+### Reproduction Snippet (from issue)
 
-Newer skills already follow the target convention, e.g. `s7n-react-component/references/component-api-design.md`.
+```python
+import pyarrow as pa
+import pyarrow.parquet as pq
+import pandas as pd
+import uuid
+
+original_uuid = uuid.uuid4()
+df = pd.DataFrame({"id": [original_uuid]})
+table = pa.Table.from_pandas(df)
+
+pq.write_table(table, "test_uuid.parquet")
+read_table = pq.read_table("test_uuid.parquet")
+result_df = read_table.to_pandas()
+
+# Python 3.13: uuid.UUID. Python 3.14/nightly: bytes.
+print(type(result_df.loc[0, "id"]))
+```
 
 ### Affected Components
 
-- 15 skill directories with `references/` files that still use numeric prefixes
-- Corresponding `SKILL.md` files that link to those reference paths
+- **Python** — the `to_pandas()` / pandas conversion path that casts Arrow extension/fixed-length-byte-array types back to Python objects
+- **Parquet** — the read path that reconstructs typed columns from `FIXED_LEN_BYTE_ARRAY` data
 
-### Suggested Fix (from issue)
+This was surfaced while adding upstream UUID Parquet tests to the pandas test suite (`pandas-dev/pandas#65647`), suggesting the regression is likely tied to a Python 3.14–specific change (e.g. in `uuid`, `pickle`, or C-API internals PyArrow relies on for the cast).
 
-1. Rename each numeric-prefixed file to its kebab-case equivalent (drop the leading number and hyphen).
-2. Update every matching link in the affected `SKILL.md` files.
-3. Run `pnpm skill-sync validate` to confirm no dangling reference links remain.
+### Suggested Fix
+
+Not yet proposed by the maintainers — this is an open investigation. My plan is to bisect between Python 3.13 and 3.14 behavior to find what changed (likely in how PyArrow's canonical extension type / pandas metadata round-trips, or a Python 3.14 C-API change affecting the cast), then narrow to the specific PyArrow code path responsible.
 
 ---
 
@@ -124,9 +137,10 @@ Using UMPIRE framework (adapted):
 
 ### Week 1 Progress (Phase I)
 
-- Selected issue [#10](https://github.com/sebastian-software/skills/issues/10) in `sebastian-software/skills`
-- Commented on the issue to request assignment
-- Created this Contribution README
+- Forked `apache/arrow` to [parker-cassar/arrow](https://github.com/parker-cassar/arrow)
+- Selected issue: PyArrow fails to cast UUID `FIXED_LEN_BYTE_ARRAY` back to `uuid.UUID` on Python 3.14 / nightly
+- Commented on the issue committing to attempt a fix within 24 hours
+- Updated this Contribution README
 
 ### Week [X] Progress
 
@@ -172,5 +186,6 @@ Using UMPIRE framework (adapted):
 
 ## Resources Used
 
-- [Issue #10 — Inconsistent reference-file naming](https://github.com/sebastian-software/skills/issues/10)
-- [sebastian-software/skills repository](https://github.com/sebastian-software/skills)
+- [apache/arrow issue — PyArrow UUID Parquet cast regression on Python 3.14] (link TBD)
+- [pandas-dev/pandas#65647 — upstream UUID Parquet tests](https://github.com/pandas-dev/pandas/pull/65647)
+- [My fork: parker-cassar/arrow](https://github.com/parker-cassar/arrow)
