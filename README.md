@@ -6,7 +6,7 @@
 **Student:** Parker Cassar
 **Issue:** https://github.com/apache/arrow/issues/50312
 **Fork:** https://github.com/parker-cassar/arrow
-**Status:** Phase II — Reproduce and Plan
+**Status:** Phase IV — Submit and Iterate
 
 ---
 
@@ -249,29 +249,42 @@ Run the issue's repro script on Python 3.13 and 3.14 before and after the fix. C
 - Identified `MyCustomIntegerType.to_pandas_dtype()` in `test_pandas.py` as the pattern to follow
 - Drafted fix plan with edge cases (nulls, empty tables, `types_mapper`, `arrow_extensions_enabled=False`)
 
-### Week [X] Progress
+### Week 8 Progress (Phase IV)
 
-[Continue documenting as you work]
+- Posted a status update on [PR #50325](https://github.com/apache/arrow/pull/50325) after integrating @rok's C++ conversion proposal ([rok/arrow#55](https://github.com/rok/arrow/pull/55))
+- Comment (2026-07-27): full UUID round-trip was passing; finishing a last pass and would have the update up in the next day or two
+- Thanked @rok for the proposal; it made the rewrite much easier than staying on the Python compat-layer approach
+
+### Week 9 Progress (Phase IV)
+
+- @rok reviewed again: "I have a potential performance improvement suggestion, but other than that this looks pretty good."
+- Review note on `python/pyarrow/src/arrow/python/helpers.cc`: creating a new kwargs dict for every UUID value was unnecessary; pass a reused empty kwargs into `UuidFromBytes` instead
+- Addressed that feedback with two commits:
+  - [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9) — `GH-50312: [Python] Reuse empty kwargs`
+  - [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574) — `GH-50312: [Python] Use shared empty tuple constant for UUID construction`
+- Kept iterating on the open PR rather than opening a new one
 
 ### Code Changes
 
-- **Files modified:** [List]
-- **Key commits:** [Links to important commits]
-- **Approach decisions:** [Why you chose certain approaches]
+- **Files modified:** `python/pyarrow/src/arrow/python/helpers.cc`, `python/pyarrow/src/arrow/python/arrow_to_pandas.cc`, related UUID/pandas conversion paths and tests
+- **Key commits:**
+  - [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9) — reuse empty kwargs across UUID conversions
+  - [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574) — shared empty tuple constant for UUID construction
+- **Approach decisions:** Followed @rok's C++ conversion proposal instead of the original Python compat layer; then applied his kwargs-reuse review comment to avoid per-element allocation
 
 ---
 
 ## Pull Request
 
-**PR Link:** [GitHub PR URL when submitted]
+**PR Link:** https://github.com/apache/arrow/pull/50325
 
-**PR Description:** [Draft or final PR description — much of the content above can be adapted]
+**PR Description:** `GH-50312: [Python] Fix UUID extension type round-trip to pandas returning bytes`
 
 **Maintainer Feedback:**
-- [Date]: [Summary of feedback received]
-- [Date]: [How you addressed it]
+- **2026-07-27 (Week 8):** Status update on the PR after integrating @rok's C++ proposal. Full round-trip passing; finishing last pass. Thanked @rok for the proposal.
+- **~2026-08-05 (Week 9):** @rok: performance suggestion on `helpers.cc` (avoid per-value kwargs dict); otherwise looked pretty good. Addressed in [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9) and [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574).
 
-**Status:** [Awaiting review / Iterating / Approved / Merged]
+**Status:** Iterating / approved by reviewers (open, awaiting merge)
 
 ---
 
@@ -294,6 +307,7 @@ Run the issue's repro script on Python 3.13 and 3.14 before and after the fix. C
 ## Resources Used
 
 - [apache/arrow#50312 — FIXED_LEN_BYTE_ARRAY fails to cast to UUID on Python 3.14](https://github.com/apache/arrow/issues/50312)
+- [apache/arrow#50325 — PR: Fix UUID extension type round-trip to pandas](https://github.com/apache/arrow/pull/50325)
 - [pandas-dev/pandas#65647 — upstream UUID Parquet tests](https://github.com/pandas-dev/pandas/pull/65647)
 - [My fork: parker-cassar/arrow](https://github.com/parker-cassar/arrow)
 - [Arrow Python development docs](https://arrow.apache.org/docs/developers/python/index.html)
