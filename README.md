@@ -75,7 +75,7 @@ Not yet proposed by the maintainers - this is an open investigation. My plan is 
 
 **Steps taken:**
 
-1. Forked `apache/arrow`  to  [parker-cassar/arrow](https://github.com/parker-cassar/arrow)
+1. Forked `apache/arrow` to [parker-cassar/arrow](https://github.com/parker-cassar/arrow)
 2. Cloned locally: `git clone https://github.com/parker-cassar/arrow.git && cd arrow`
 3. Created working branch: `git checkout -b gh-50312-uuid-pandas-roundtrip`
 4. Created isolated venvs for reproduction (PyPI wheels, faster than a full source build for Phase II):
@@ -183,7 +183,7 @@ Option 1 was the Phase II preferred plan - it matched existing PyArrow conventio
 
 ### Approach change (documented for Phase IV consistency)
 
-**What changed after review:** Maintainers (@rok) asked to move UUID  to  Python object conversion into the **C++ pandas conversion path** instead of the Python `to_pandas_dtype()` / `__from_arrow__` compat layer. See [rok/arrow#55](https://github.com/rok/arrow/pull/55) and discussion on [PR #50325](https://github.com/apache/arrow/pull/50325) (2026-07-21).
+**What changed after review:** Maintainers (@rok) asked to move UUID to Python object conversion into the **C++ pandas conversion path** instead of the Python `to_pandas_dtype()` / `__from_arrow__` compat layer. See [rok/arrow#55](https://github.com/rok/arrow/pull/55) and discussion on [PR #50325](https://github.com/apache/arrow/pull/50325) (2026-07-21).
 
 **Why the change:** cleaner API, better performance, and a neater pandas compat surface than a Python-only dtype wrapper.
 
@@ -205,7 +205,7 @@ Using UMPIRE framework (adapted):
 - **NumPy conversion** - `to_numpy(zero_copy_only=False)` should return storage `bytes`, not `uuid.UUID`
 
 **Plan (as executed in Phase III/IV):**
-1. Open PR against `apache/arrow` `main` with failing/passing regression coverage for UUID  to  pandas.
+1. Open PR against `apache/arrow` `main` with failing/passing regression coverage for UUID to pandas.
 2. Integrate C++ conversion path per maintainer proposal.
 3. Address review rounds (helpers factoring, kwargs reuse, NumPy storage behavior).
 4. Keep CI green and iterate until approvals.
@@ -324,7 +324,32 @@ Also spot-checked `to_pylist()` still returns `uuid.UUID` (unchanged).
 **Process / communication:**
 - Surfaced to maintainers via repeated @mentions of @rok, @AlenkaF, and @pitrou on the PR conversation
 - Reviewers requested in the PR panel (`raulcd`, `jorisvandenbossche`)
-- Course Portal check-in: mark **Phase IV Complete** when submitting this README URL
+- **Course Portal:** submit the check-in form with **Phase IV Complete** marked (student action on portal; not automated here)
+
+### Phase IV deliverables checklist (rubric map)
+
+**Pull Request Submission**
+- [x] PR open (not draft) against upstream `apache/arrow` `main`: https://github.com/apache/arrow/pull/50325
+- [x] Uses Arrow PR template sections: Rationale / What changes / Are these changes tested? / Are there any user-facing changes?
+- [x] Issue linked with close keyword: `Closes #50312`
+
+**PR Description Quality**
+- [x] Why before what: **Rationale for this change** appears before **What changes are included in this PR?**
+- [x] Acceptance criteria checklist filled in (tests added, tests passing, style, no unintended breaking API)
+- [x] Before/after console evidence included (`bytes` vs `uuid.UUID`)
+
+**README Documentation Quality**
+- [x] Pull Request section has PR link, summary, and current status
+- [x] Maintainer Feedback log has dates, feedback, my response, and commit refs
+- [x] Learnings & Reflections filled (technical gains, challenges, what I'd do differently, teachable insight)
+- [x] Internal consistency: Phase II planned `to_pandas_dtype()`; Phase IV documents the switch to the C++ path under **Approach change**
+
+**Process & Communication**
+- [ ] Course Portal check-in submitted with **Phase IV Complete** marked (do this when sending the README URL)
+- [x] Maintainers @mentioned / review requested on the PR (`@rok`, `@AlenkaF`, `@pitrou`; review requests for `raulcd`, `jorisvandenbossche`)
+
+**Stretch / Bonus**
+- [x] Full loop: multiple review rounds with substantive follow-up commits; PR **approved** by @rok and @AlenkaF (`awaiting merge`); Learnings includes a teachable insight for future cohorts
 
 **Maintainer Feedback log:**
 
@@ -360,7 +385,7 @@ Also spot-checked `to_pylist()` still returns `uuid.UUID` (unchanged).
 
 - After root-causing a bridge bug, ask earlier whether the project prefers fixing it in C++ vs Python, instead of investing hard in the first matching in-repo Python pattern.
 - Keep the PR description synchronized with approach changes (the body still described `to_pandas_dtype()` long after the C++ rewrite; updated in Phase IV cleanup).
-- Treat "extension type  to  NumPy should follow storage" as a checklist item up front whenever adding logical-type conversions.
+- Treat "extension type to NumPy should follow storage" as a checklist item up front whenever adding logical-type conversions.
 
 ### Teachable insight for future cohorts
 
