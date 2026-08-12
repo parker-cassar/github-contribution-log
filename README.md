@@ -172,14 +172,22 @@ The conversion logic in `_array_like_to_pandas` checks whether an extension type
 
 The fix should ensure that when `to_pandas()` encounters an `extension<arrow.uuid>` column, the result contains `uuid.UUID` objects — matching what `to_pylist()` already produces.
 
-### Proposed Solution
+### Proposed Solution (Phase II plan)
 
-Teach the `to_pandas()` path to handle `UuidType` the same way the native Arrow path already does. Two viable approaches:
+Teach the `to_pandas()` path to handle `UuidType` the same way the native Arrow path already does. Two viable approaches at planning time:
 
 1. **Implement `to_pandas_dtype()` on `UuidType`** that returns a pandas-compatible dtype with `__from_arrow__`, converting via `UuidScalar.as_py()`. This follows the pattern used by other extension types (e.g. `ExampleUuidType` in the test suite).
 2. **Add a special case in `_array_like_to_pandas`** for `UuidType` that converts through `to_pylist()` or iterates `UuidScalar.as_py()` before building the Series. Simpler but less extensible.
 
-Option 1 is preferred — it matches existing PyArrow conventions and will also benefit `types_mapper`-based table conversions in `pandas_compat.py`.
+Option 1 was the Phase II preferred plan — it matched existing PyArrow conventions and would also benefit `types_mapper`-based table conversions in `pandas_compat.py`.
+
+### Approach change (documented for Phase IV consistency)
+
+**What changed after review:** Maintainers (@rok) asked to move UUID → Python object conversion into the **C++ pandas conversion path** instead of the Python `to_pandas_dtype()` / `__from_arrow__` compat layer. See [rok/arrow#55](https://github.com/rok/arrow/pull/55) and discussion on [PR #50325](https://github.com/apache/arrow/pull/50325) (2026-07-21).
+
+**Why the change:** cleaner API, better performance, and a neater pandas compat surface than a Python-only dtype wrapper.
+
+**What shipped in the PR:** C++ `UuidFromBytes` helpers + `arrow_to_pandas.cc` integration, regression tests, kwargs/tuple reuse for allocation efficiency, and `to_numpy` keeping storage `bytes`. The Phase II root-cause diagnosis (missing pandas conversion for `UuidType`) still holds; only the implementation layer changed.
 
 ### Implementation Plan
 
@@ -187,25 +195,26 @@ Using UMPIRE framework (adapted):
 
 **Understand:** When reading a Parquet file containing UUIDs, `table.to_pandas()` must return `uuid.UUID` objects, not raw `bytes`. The Arrow layer already handles this correctly; the pandas bridge does not.
 
-**Match:** The closest in-repo analogue is `MyCustomIntegerType` in `python/pyarrow/tests/test_pandas.py`, which implements `to_pandas_dtype()` returning `pd.Int64Dtype()` — a pandas extension dtype with `__from_arrow__`. That test (`test_conversion_extensiontype_to_extensionarray`) proves the exact pattern I need: when `to_pandas_dtype()` returns a dtype with `__from_arrow__`, `_array_like_to_pandas` takes the typed path instead of falling through to C++. A secondary analogue is `PeriodTypeWithToPandasDtype` in `test_extension_type.py`, which adds `to_pandas_dtype()` to an extension type returning `pd.PeriodDtype(freq=...)`. For UUID, I'll follow the same pattern — either wire up a pandas UUID extension dtype (if available in pandas 3.0) or provide a small helper dtype whose `__from_arrow__` delegates to `UuidScalar.as_py()`.
+**Match:** Phase II matched `MyCustomIntegerType.to_pandas_dtype()` in `test_pandas.py`. After maintainer feedback, the match became @rok's C++ sketch in [rok/arrow#55](https://github.com/rok/arrow/pull/55) and existing UUID helpers in `helpers.cc`.
 
 **Edge cases to handle in the fix:**
 - **Null UUIDs** — a nullable UUID column should roundtrip as `None`, not empty bytes
 - **Empty tables** — `to_pandas()` on a zero-row UUID column should not crash
 - **`types_mapper` override** — if a caller passes a custom mapper, it should take precedence over the default UUID mapping
 - **Parquet with `arrow_extensions_enabled=False`** — reading as plain `fixed_size_binary(16)` is expected to stay as bytes; only the extension-typed path needs UUID conversion
+- **NumPy conversion** — `to_numpy(zero_copy_only=False)` should return storage `bytes`, not `uuid.UUID`
 
-**Plan:**
-1. Add a failing regression test in `python/pyarrow/tests/parquet/test_data_types.py` (or `test_extension_type.py`) that writes a UUID column to Parquet, reads it back, calls `to_pandas()`, and asserts `isinstance(result, uuid.UUID)`.
-2. Implement `to_pandas_dtype()` on `UuidType` (or a dedicated pandas extension dtype helper) that provides `__from_arrow__` returning `uuid.UUID` objects.
-3. Verify the fix on Python 3.14 and confirm no regression on Python 3.13.
-4. Run existing UUID and Parquet test suites: `pytest python/pyarrow/tests/parquet/test_data_types.py python/pyarrow/tests/test_extension_type.py`.
+**Plan (as executed in Phase III/IV):**
+1. Open PR against `apache/arrow` `main` with failing/passing regression coverage for UUID → pandas.
+2. Integrate C++ conversion path per maintainer proposal.
+3. Address review rounds (helpers factoring, kwargs reuse, NumPy storage behavior).
+4. Keep CI green and iterate until approvals.
 
-**Implement:** [Link to branch/commits as work begins in Phase III]
+**Implement:** https://github.com/apache/arrow/pull/50325
 
-**Review:** Confirm the change follows Arrow's contribution guidelines — prefix PR title with `GH-50312: [Python][Parquet]`, include a test, no unrelated changes.
+**Review:** Title prefixed `GH-50312: [Python]`, tests included, review feedback addressed in follow-up commits.
 
-**Evaluate:** The regression test passes on Python 3.14. Existing `test_uuid_extension_type` and related Parquet tests still pass. Manual repro script from the issue returns `<class 'uuid.UUID'>`.
+**Evaluate:** Round-trip returns `uuid.UUID` via `to_pandas()`; `to_numpy` returns `bytes`; PR approved by @rok and @AlenkaF (open, awaiting merge).
 
 ---
 
@@ -213,18 +222,28 @@ Using UMPIRE framework (adapted):
 
 ### Unit Tests
 
-- [ ] Parquet UUID roundtrip via `to_pandas()` returns `uuid.UUID` on Python 3.14
-- [ ] `UuidType.to_pandas_dtype()` (or equivalent) produces a dtype with working `__from_arrow__`
-- [ ] Null UUID values roundtrip as `None`, not as empty bytes
+- [x] Parquet UUID roundtrip via `to_pandas()` returns `uuid.UUID`
+- [x] Null UUID values roundtrip as `None`, not as empty bytes
+- [x] UUID `to_numpy(zero_copy_only=False)` returns storage `bytes`
 
 ### Integration Tests
 
-- [ ] Full issue repro script passes end-to-end on Python 3.14
-- [ ] Existing `test_uuid_extension_type` in `parquet/test_data_types.py` still passes (no regression)
+- [x] Full issue repro script passes end-to-end (`type(...)` is `uuid.UUID` after fix)
+- [x] Existing UUID / extension tests still pass (no regression on touched paths)
 
-### Manual Testing
+### Manual Testing / before-after evidence
 
-Run the issue's repro script on Python 3.13 and 3.14 before and after the fix. Confirm `type(result_df.loc[0, "id"])` is `uuid.UUID` on both. Also spot-check `to_pylist()` still returns `uuid.UUID` (should be unchanged).
+```text
+# Before
+>>> type(result_df.loc[0, "id"])
+<class 'bytes'>
+
+# After
+>>> type(result_df.loc[0, "id"])
+<class 'uuid.UUID'>
+```
+
+Also spot-checked `to_pylist()` still returns `uuid.UUID` (unchanged).
 
 ---
 
@@ -262,15 +281,20 @@ Run the issue's repro script on Python 3.13 and 3.14 before and after the fix. C
 - Addressed that feedback with two commits:
   - [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9) — `GH-50312: [Python] Reuse empty kwargs`
   - [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574) — `GH-50312: [Python] Use shared empty tuple constant for UUID construction`
-- Kept iterating on the open PR rather than opening a new one
+- Later round: @rok asked that UUID `to_numpy` return storage `bytes`; addressed in [`a4f309b`](https://github.com/apache/arrow/pull/50325/commits/a4f309b)
+- PR approved by @rok and @AlenkaF; still open against upstream `main` awaiting merge
 
 ### Code Changes
 
-- **Files modified:** `python/pyarrow/src/arrow/python/helpers.cc`, `python/pyarrow/src/arrow/python/arrow_to_pandas.cc`, related UUID/pandas conversion paths and tests
+- **Files modified:** `python/pyarrow/src/arrow/python/helpers.cc`, `helpers.h`, `arrow_to_pandas.cc`, `python/pyarrow/tests/parquet/test_data_types.py`, `python/pyarrow/tests/test_extension_type.py`
 - **Key commits:**
-  - [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9) — reuse empty kwargs across UUID conversions
-  - [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574) — shared empty tuple constant for UUID construction
-- **Approach decisions:** Followed @rok's C++ conversion proposal instead of the original Python compat layer; then applied his kwargs-reuse review comment to avoid per-element allocation
+  - [`f71b3a2`](https://github.com/apache/arrow/pull/50325/commits/f71b3a2) — C++ UUID → pandas conversion (integrated proposal)
+  - [`b8c8338`](https://github.com/apache/arrow/pull/50325/commits/b8c8338) — avoid per-element allocations
+  - [`352cafd`](https://github.com/apache/arrow/pull/50325/commits/352cafd) — move UUID construction into `helpers.cc` (per @pitrou)
+  - [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9) — reuse empty kwargs
+  - [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574) — shared empty tuple constant
+  - [`a4f309b`](https://github.com/apache/arrow/pull/50325/commits/a4f309b) — UUID `to_numpy` returns bytes
+- **Approach decisions:** Started from Phase II Python dtype plan; switched to @rok's C++ conversion path after review; then iterated on allocation reuse and NumPy storage semantics.
 
 ---
 
@@ -278,13 +302,29 @@ Run the issue's repro script on Python 3.13 and 3.14 before and after the fix. C
 
 **PR Link:** https://github.com/apache/arrow/pull/50325
 
-**PR Description:** `GH-50312: [Python] Fix UUID extension type round-trip to pandas returning bytes`
+**Summary:** Open (not draft) PR against `apache/arrow` `main` that fixes UUID extension columns returning `bytes` from `to_pandas()` by converting in the C++ pandas path. Uses Arrow's PR template (Rationale / What / Tested / User-facing), includes `Closes #50312`, acceptance checklist, and before/after console evidence.
 
-**Maintainer Feedback:**
-- **2026-07-27 (Week 8):** Status update on the PR after integrating @rok's C++ proposal. Full round-trip passing; finishing last pass. Thanked @rok for the proposal.
-- **~2026-08-05 (Week 9):** @rok: performance suggestion on `helpers.cc` (avoid per-value kwargs dict); otherwise looked pretty good. Addressed in [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9) and [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574).
+**PR title:** `GH-50312: [Python] Fix UUID extension type round-trip to pandas returning bytes`
 
-**Status:** Iterating / approved by reviewers (open, awaiting merge)
+**Current status:** Open against upstream `main`; approved by @rok and @AlenkaF; review requested for @raulcd and @jorisvandenbossche; awaiting merge.
+
+**Process / communication:**
+- Surfaced to maintainers via repeated @mentions of @rok (and thanks to @AlenkaF / @pitrou) on the PR conversation
+- Reviewers requested in the PR panel (`raulcd`, `jorisvandenbossche`)
+- Course Portal check-in: mark **Phase IV Complete** when submitting this README URL
+
+**Maintainer Feedback log:**
+
+| Date | Feedback | My response | Commit ref(s) |
+|------|----------|-------------|----------------|
+| 2026-07-06 | @rok: pandas 2.x/3.x reshape concern; prefer 1-D `__from_arrow__` + reshape in DataFrame path; suggested stronger UUID→pandas test | Applied both suggestions; replied on the review threads | early PR iterations (pre-C++ rewrite) |
+| 2026-07-16 | (nudge) ready for another look | @mentioned @rok asking for re-review | — |
+| 2026-07-21 | @rok: prefer C++ UUID conversion over Python compat layer ([rok/arrow#55](https://github.com/rok/arrow/pull/55)); asked if I could continue that way | Agreed (2026-07-23); rewrote approach around the proposal | leading into [`f71b3a2`](https://github.com/apache/arrow/pull/50325/commits/f71b3a2) |
+| 2026-07-27 | (status) integrated proposal; round-trip passing; finishing last pass | Posted update thanking @rok for the proposal | [`f71b3a2`](https://github.com/apache/arrow/pull/50325/commits/f71b3a2) |
+| 2026-07-29 | @pitrou: factor UUID support into existing `helpers.cc` | Moved construction into helpers | [`352cafd`](https://github.com/apache/arrow/pull/50325/commits/352cafd) |
+| 2026-08-05 | @rok: "potential performance improvement… otherwise looks pretty good" — reuse empty kwargs instead of per-value dict in `helpers.cc` | Implemented reuse + shared empty tuple constant | [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9), [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574) |
+| 2026-08-10 | @rok: UUID `to_numpy` should return storage `bytes` | Added behavior + test | [`a4f309b`](https://github.com/apache/arrow/pull/50325/commits/a4f309b) |
+| 2026-08-10+ | @rok LGTM / APPROVED; @AlenkaF APPROVED | Thanked reviewers; credited @rok's proposal | — |
 
 ---
 
@@ -292,15 +332,26 @@ Run the issue's repro script on Python 3.13 and 3.14 before and after the fix. C
 
 ### Technical Skills Gained
 
-[What you learned technically]
+- How PyArrow bridges Arrow extension types to pandas/NumPy: storage type vs logical type, and why falling back to `fixed_size_binary(16)` silently returns `bytes`.
+- Building and iterating on Arrow's Python/C++ boundary (`arrow_to_pandas.cc`, `helpers.cc`) instead of staying only in Cython/Python.
+- Reading maintainer proposals as first-class design input: integrating [rok/arrow#55](https://github.com/rok/arrow/pull/55) was faster and cleaner than defending the first Python-layer approach.
+- Micro-efficiency in CPython API usage (reuse empty kwargs / borrowed empty tuple) when converting large arrays element-by-element.
 
 ### Challenges Overcome
 
-[What was hard and how you solved it]
+- Initial mental model ("Python 3.14 regression") was wrong; reproduction on 3.10–3.14 showed a missing feature path exposed by newer downstream tests.
+- First PR approach was acceptable as a spike, but maintainers correctly pushed for C++ conversion; rewriting mid-review without losing test coverage took discipline.
+- Review loops spanned pandas reshape quirks, helper factoring, allocation reuse, and NumPy semantics — each needed a concrete follow-up commit, not just agreement in chat.
 
 ### What I'd Do Differently Next Time
 
-[Reflection on your process]
+- After root-causing a bridge bug, ask earlier whether the project prefers fixing it in C++ vs Python, instead of investing hard in the first matching in-repo Python pattern.
+- Keep the PR description synchronized with approach changes (the body still described `to_pandas_dtype()` long after the C++ rewrite; updated in Phase IV cleanup).
+- Treat "extension type → NumPy should follow storage" as a checklist item up front whenever adding logical-type conversions.
+
+### Teachable insight for future cohorts
+
+If your first patch matches a nearby Python helper but a maintainer sketches a C++ path, switch early. In mature projects like Arrow, the Python layer often exists for convenience; the durable fix usually lives next to the conversion engine. Document that approach change in your contribution log so Phase II and Phase IV stay consistent for graders and for your future self.
 
 ---
 
@@ -308,7 +359,9 @@ Run the issue's repro script on Python 3.13 and 3.14 before and after the fix. C
 
 - [apache/arrow#50312 — FIXED_LEN_BYTE_ARRAY fails to cast to UUID on Python 3.14](https://github.com/apache/arrow/issues/50312)
 - [apache/arrow#50325 — PR: Fix UUID extension type round-trip to pandas](https://github.com/apache/arrow/pull/50325)
+- [rok/arrow#55 — C++ UUID conversion proposal](https://github.com/rok/arrow/pull/55)
 - [pandas-dev/pandas#65647 — upstream UUID Parquet tests](https://github.com/pandas-dev/pandas/pull/65647)
 - [My fork: parker-cassar/arrow](https://github.com/parker-cassar/arrow)
 - [Arrow Python development docs](https://arrow.apache.org/docs/developers/python/index.html)
 - [Arrow contributing guide](https://github.com/apache/arrow/blob/main/CONTRIBUTING.md)
+- [Arrow PR template](https://github.com/apache/arrow/blob/main/.github/pull_request_template.md)
