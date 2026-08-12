@@ -75,7 +75,7 @@ Not yet proposed by the maintainers - this is an open investigation. My plan is 
 
 **Steps taken:**
 
-1. Forked `apache/arrow` → [parker-cassar/arrow](https://github.com/parker-cassar/arrow)
+1. Forked `apache/arrow`  to  [parker-cassar/arrow](https://github.com/parker-cassar/arrow)
 2. Cloned locally: `git clone https://github.com/parker-cassar/arrow.git && cd arrow`
 3. Created working branch: `git checkout -b gh-50312-uuid-pandas-roundtrip`
 4. Created isolated venvs for reproduction (PyPI wheels, faster than a full source build for Phase II):
@@ -183,7 +183,7 @@ Option 1 was the Phase II preferred plan - it matched existing PyArrow conventio
 
 ### Approach change (documented for Phase IV consistency)
 
-**What changed after review:** Maintainers (@rok) asked to move UUID → Python object conversion into the **C++ pandas conversion path** instead of the Python `to_pandas_dtype()` / `__from_arrow__` compat layer. See [rok/arrow#55](https://github.com/rok/arrow/pull/55) and discussion on [PR #50325](https://github.com/apache/arrow/pull/50325) (2026-07-21).
+**What changed after review:** Maintainers (@rok) asked to move UUID  to  Python object conversion into the **C++ pandas conversion path** instead of the Python `to_pandas_dtype()` / `__from_arrow__` compat layer. See [rok/arrow#55](https://github.com/rok/arrow/pull/55) and discussion on [PR #50325](https://github.com/apache/arrow/pull/50325) (2026-07-21).
 
 **Why the change:** cleaner API, better performance, and a neater pandas compat surface than a Python-only dtype wrapper.
 
@@ -205,7 +205,7 @@ Using UMPIRE framework (adapted):
 - **NumPy conversion** - `to_numpy(zero_copy_only=False)` should return storage `bytes`, not `uuid.UUID`
 
 **Plan (as executed in Phase III/IV):**
-1. Open PR against `apache/arrow` `main` with failing/passing regression coverage for UUID → pandas.
+1. Open PR against `apache/arrow` `main` with failing/passing regression coverage for UUID  to  pandas.
 2. Integrate C++ conversion path per maintainer proposal.
 3. Address review rounds (helpers factoring, kwargs reuse, NumPy storage behavior).
 4. Keep CI green and iterate until approvals.
@@ -281,18 +281,31 @@ Also spot-checked `to_pylist()` still returns `uuid.UUID` (unchanged).
 - Addressed that feedback with two commits:
  - [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9) - `GH-50312: [Python] Reuse empty kwargs`
  - [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574) - `GH-50312: [Python] Use shared empty tuple constant for UUID construction`
-- Later round: @rok asked that UUID `to_numpy` return storage `bytes`; addressed in [`a4f309b`](https://github.com/apache/arrow/pull/50325/commits/a4f309b)
-- PR approved by @rok and @AlenkaF; still open against upstream `main` awaiting merge
+
+### Week 10 Progress (Phase IV) - Approved, awaiting merge
+
+- @rok: almost there; need `type(uuid_array.to_numpy(zero_copy_only=False)[0])` to be `bytes`, because extension-array NumPy conversion should delegate to storage type (`arrow_to_pandas.cc` + `test_extension_type.py`)
+- Bot labeled `awaiting changes`
+- Addressed with:
+ - [`834be3a`](https://github.com/apache/arrow/pull/50325/commits/834be3a) - Fix lint
+ - [`a4f309b`](https://github.com/apache/arrow/pull/50325/commits/a4f309b) - UUID `to_numpy` returns bytes
+- Bot moved labels to `awaiting change review`
+- Asked @rok to re-run macOS 15-intel CI (Install MinIO / `wget` could not resolve `dl.min.io` before build/tests ran)
+- @rok **APPROVED**: "LGTM. I'll wait a bit if @AlenkaF or @pitrou have time to review."
+- Bot labeled `awaiting merge`
+- @AlenkaF **APPROVED**: thanks for the C++ solution; happy to see it get merged
+- Thanked @AlenkaF and @rok; credited the C++ approach to [rok/arrow#55](https://github.com/rok/arrow/pull/55)
 
 ### Code Changes
 
 - **Files modified:** `python/pyarrow/src/arrow/python/helpers.cc`, `helpers.h`, `arrow_to_pandas.cc`, `python/pyarrow/tests/parquet/test_data_types.py`, `python/pyarrow/tests/test_extension_type.py`
 - **Key commits:**
- - [`f71b3a2`](https://github.com/apache/arrow/pull/50325/commits/f71b3a2) - C++ UUID → pandas conversion (integrated proposal)
+ - [`f71b3a2`](https://github.com/apache/arrow/pull/50325/commits/f71b3a2) - C++ UUID to pandas conversion (integrated proposal)
  - [`b8c8338`](https://github.com/apache/arrow/pull/50325/commits/b8c8338) - avoid per-element allocations
  - [`352cafd`](https://github.com/apache/arrow/pull/50325/commits/352cafd) - move UUID construction into `helpers.cc` (per @pitrou)
  - [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9) - reuse empty kwargs
  - [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574) - shared empty tuple constant
+ - [`834be3a`](https://github.com/apache/arrow/pull/50325/commits/834be3a) - fix lint
  - [`a4f309b`](https://github.com/apache/arrow/pull/50325/commits/a4f309b) - UUID `to_numpy` returns bytes
 - **Approach decisions:** Started from Phase II Python dtype plan; switched to @rok's C++ conversion path after review; then iterated on allocation reuse and NumPy storage semantics.
 
@@ -306,10 +319,10 @@ Also spot-checked `to_pylist()` still returns `uuid.UUID` (unchanged).
 
 **PR title:** `GH-50312: [Python] Fix UUID extension type round-trip to pandas returning bytes`
 
-**Current status:** Open against upstream `main`; approved by @rok and @AlenkaF; review requested for @raulcd and @jorisvandenbossche; awaiting merge.
+**Current status:** **Approved and awaiting merge** on upstream `main` (bot label `awaiting merge`). Approvals from @rok and @AlenkaF.
 
 **Process / communication:**
-- Surfaced to maintainers via repeated @mentions of @rok (and thanks to @AlenkaF / @pitrou) on the PR conversation
+- Surfaced to maintainers via repeated @mentions of @rok, @AlenkaF, and @pitrou on the PR conversation
 - Reviewers requested in the PR panel (`raulcd`, `jorisvandenbossche`)
 - Course Portal check-in: mark **Phase IV Complete** when submitting this README URL
 
@@ -317,14 +330,14 @@ Also spot-checked `to_pylist()` still returns `uuid.UUID` (unchanged).
 
 | Date | Feedback | My response | Commit ref(s) |
 |------|----------|-------------|----------------|
-| 2026-07-06 | @rok: pandas 2.x/3.x reshape concern; prefer 1-D `__from_arrow__` + reshape in DataFrame path; suggested stronger UUID→pandas test | Applied both suggestions; replied on the review threads | early PR iterations (pre-C++ rewrite) |
+| 2026-07-06 | @rok: pandas 2.x/3.x reshape concern; prefer 1-D `__from_arrow__` + reshape in DataFrame path; suggested stronger UUID to pandas test | Applied both suggestions; replied on the review threads | early PR iterations (pre-C++ rewrite) |
 | 2026-07-16 | (nudge) ready for another look | @mentioned @rok asking for re-review | - |
 | 2026-07-21 | @rok: prefer C++ UUID conversion over Python compat layer ([rok/arrow#55](https://github.com/rok/arrow/pull/55)); asked if I could continue that way | Agreed (2026-07-23); rewrote approach around the proposal | leading into [`f71b3a2`](https://github.com/apache/arrow/pull/50325/commits/f71b3a2) |
 | 2026-07-27 | (status) integrated proposal; round-trip passing; finishing last pass | Posted update thanking @rok for the proposal | [`f71b3a2`](https://github.com/apache/arrow/pull/50325/commits/f71b3a2) |
 | 2026-07-29 | @pitrou: factor UUID support into existing `helpers.cc` | Moved construction into helpers | [`352cafd`](https://github.com/apache/arrow/pull/50325/commits/352cafd) |
 | 2026-08-05 | @rok: "potential performance improvement... otherwise looks pretty good" - reuse empty kwargs instead of per-value dict in `helpers.cc` | Implemented reuse + shared empty tuple constant | [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9), [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574) |
-| 2026-08-10 | @rok: UUID `to_numpy` should return storage `bytes` | Added behavior + test | [`a4f309b`](https://github.com/apache/arrow/pull/50325/commits/a4f309b) |
-| 2026-08-10+ | @rok LGTM / APPROVED; @AlenkaF APPROVED | Thanked reviewers; credited @rok's proposal | - |
+| 2026-08-10 | @rok: almost there; `to_numpy(zero_copy_only=False)[0]` must be `bytes` (storage type). Bot: `awaiting changes` | Fixed lint + NumPy storage behavior; asked @rok to re-run flaky macOS 15-intel MinIO job | [`834be3a`](https://github.com/apache/arrow/pull/50325/commits/834be3a), [`a4f309b`](https://github.com/apache/arrow/pull/50325/commits/a4f309b) |
+| 2026-08-11 | @rok **APPROVED** ("LGTM", waiting on @AlenkaF / @pitrou). Bot: `awaiting merge`. @AlenkaF **APPROVED** (happy to see C++ solution merge) | Thanked @AlenkaF and @rok; credited [rok/arrow#55](https://github.com/rok/arrow/pull/55) | - |
 
 ---
 
@@ -347,7 +360,7 @@ Also spot-checked `to_pylist()` still returns `uuid.UUID` (unchanged).
 
 - After root-causing a bridge bug, ask earlier whether the project prefers fixing it in C++ vs Python, instead of investing hard in the first matching in-repo Python pattern.
 - Keep the PR description synchronized with approach changes (the body still described `to_pandas_dtype()` long after the C++ rewrite; updated in Phase IV cleanup).
-- Treat "extension type → NumPy should follow storage" as a checklist item up front whenever adding logical-type conversions.
+- Treat "extension type  to  NumPy should follow storage" as a checklist item up front whenever adding logical-type conversions.
 
 ### Teachable insight for future cohorts
 
