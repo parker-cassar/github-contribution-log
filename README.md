@@ -6,7 +6,7 @@
 **Student:** Parker Cassar
 **Issue:** https://github.com/apache/arrow/issues/50312
 **Fork:** https://github.com/parker-cassar/arrow
-**Status:** Phase IV — Submit and Iterate
+**Status:** Phase IV - Submit and Iterate
 
 ---
 
@@ -14,7 +14,7 @@
 
 I chose this issue because it's a self-contained regression with a precise, minimal reproduction already provided by the reporter (write a `uuid.UUID` to Parquet, read it back, check the Python type). That makes it a strong first issue: I don't have to hunt for a repro case, I just need to understand why the read-back cast behaves differently across Python versions.
 
-It also touches an area — PyArrow's Python/C++ boundary for extension-type casting — that I haven't worked in before, so it's a good opportunity to learn how PyArrow bridges Arrow's columnar types back to native Python objects. I commented on the issue committing to attempt a fix within 24 hours, so I want to move quickly through reproduction and planning.
+It also touches an area - PyArrow's Python/C++ boundary for extension-type casting - that I haven't worked in before, so it's a good opportunity to learn how PyArrow bridges Arrow's columnar types back to native Python objects. I commented on the issue committing to attempt a fix within 24 hours, so I want to move quickly through reproduction and planning.
 
 ---
 
@@ -22,11 +22,11 @@ It also touches an area — PyArrow's Python/C++ boundary for extension-type cas
 
 ### Problem Description
 
-PyArrow stores `uuid.UUID` values written via `pa.Table.from_pandas` as a `FIXED_LEN_BYTE_ARRAY` (16 bytes) in Parquet. On read-back, PyArrow is expected to cast that fixed-length byte array back into `uuid.UUID` objects. On Python 3.14 / nightly builds, that cast is not happening — the reader instead returns raw `bytes`.
+PyArrow stores `uuid.UUID` values written via `pa.Table.from_pandas` as a `FIXED_LEN_BYTE_ARRAY` (16 bytes) in Parquet. On read-back, PyArrow is expected to cast that fixed-length byte array back into `uuid.UUID` objects. On Python 3.14 / nightly builds, that cast is not happening - the reader instead returns raw `bytes`.
 
 ### Expected Behavior
 
-Reading a Parquet file written from a `uuid.UUID` column should yield `uuid.UUID` objects in the resulting pandas DataFrame, regardless of Python version — matching the behavior on Python 3.13 and earlier.
+Reading a Parquet file written from a `uuid.UUID` column should yield `uuid.UUID` objects in the resulting pandas DataFrame, regardless of Python version - matching the behavior on Python 3.13 and earlier.
 
 ### Current Behavior
 
@@ -54,14 +54,14 @@ print(type(result_df.loc[0, "id"]))
 
 ### Affected Components
 
-- **Python** — the `to_pandas()` / pandas conversion path that casts Arrow extension/fixed-length-byte-array types back to Python objects
-- **Parquet** — the read path that reconstructs typed columns from `FIXED_LEN_BYTE_ARRAY` data
+- **Python** - the `to_pandas()` / pandas conversion path that casts Arrow extension/fixed-length-byte-array types back to Python objects
+- **Parquet** - the read path that reconstructs typed columns from `FIXED_LEN_BYTE_ARRAY` data
 
-This was surfaced while adding upstream UUID Parquet tests to the pandas test suite (`pandas-dev/pandas#65647`), suggesting the regression is likely tied to a Python 3.14–specific change (e.g. in `uuid`, `pickle`, or C-API internals PyArrow relies on for the cast).
+This was surfaced while adding upstream UUID Parquet tests to the pandas test suite (`pandas-dev/pandas#65647`), suggesting the regression is likely tied to a Python 3.14-specific change (e.g. in `uuid`, `pickle`, or C-API internals PyArrow relies on for the cast).
 
 ### Suggested Fix
 
-Not yet proposed by the maintainers — this is an open investigation. My plan is to bisect between Python 3.13 and 3.14 behavior to find what changed (likely in how PyArrow's canonical extension type / pandas metadata round-trips, or a Python 3.14 C-API change affecting the cast), then narrow to the specific PyArrow code path responsible.
+Not yet proposed by the maintainers - this is an open investigation. My plan is to bisect between Python 3.13 and 3.14 behavior to find what changed (likely in how PyArrow's canonical extension type / pandas metadata round-trips, or a Python 3.14 C-API change affecting the cast), then narrow to the specific PyArrow code path responsible.
 
 ---
 
@@ -71,7 +71,7 @@ Not yet proposed by the maintainers — this is an open investigation. My plan i
 
 **Branch:** [`gh-50312-uuid-pandas-roundtrip`](https://github.com/parker-cassar/arrow/tree/gh-50312-uuid-pandas-roundtrip) in my fork (named after issue #50312).
 
-**Setup approach:** Followed upstream docs rather than a dev container. Read [CONTRIBUTING.md](https://github.com/apache/arrow/blob/main/CONTRIBUTING.md) for the issue/PR workflow, then the [Python development guide](https://arrow.apache.org/docs/developers/python/index.html) for the CMake + editable-install build. Inspected [`.github/workflows/python.yml`](https://github.com/apache/arrow/blob/main/.github/workflows/python.yml) to see how CI runs Python tests (`pytest python/pyarrow/tests/`) across matrix Python versions — I'll mirror that locally before opening a PR.
+**Setup approach:** Followed upstream docs rather than a dev container. Read [CONTRIBUTING.md](https://github.com/apache/arrow/blob/main/CONTRIBUTING.md) for the issue/PR workflow, then the [Python development guide](https://arrow.apache.org/docs/developers/python/index.html) for the CMake + editable-install build. Inspected [`.github/workflows/python.yml`](https://github.com/apache/arrow/blob/main/.github/workflows/python.yml) to see how CI runs Python tests (`pytest python/pyarrow/tests/`) across matrix Python versions - I'll mirror that locally before opening a PR.
 
 **Steps taken:**
 
@@ -79,9 +79,9 @@ Not yet proposed by the maintainers — this is an open investigation. My plan i
 2. Cloned locally: `git clone https://github.com/parker-cassar/arrow.git && cd arrow`
 3. Created working branch: `git checkout -b gh-50312-uuid-pandas-roundtrip`
 4. Created isolated venvs for reproduction (PyPI wheels, faster than a full source build for Phase II):
-   - Python 3.14.6: `python3.14 -m venv .venv-314 && source .venv-314/bin/activate && pip install pyarrow pandas`
-   - Python 3.13.7: same pattern with `python3.13` (control)
-   - Python 3.10.13 system install (baseline, already had packages)
+ - Python 3.14.6: `python3.14 -m venv .venv-314 && source .venv-314/bin/activate && pip install pyarrow pandas`
+ - Python 3.13.7: same pattern with `python3.13` (control)
+ - Python 3.10.13 system install (baseline, already had packages)
 5. Platform: macOS (darwin 24.6.0), Homebrew-managed Python builds
 
 **Challenges encountered:**
@@ -90,7 +90,7 @@ Not yet proposed by the maintainers — this is an open investigation. My plan i
 |-----------|-------------------|
 | `pip install` on Homebrew Python 3.14 failed with **PEP 668 externally-managed-environment** | Created a venv first (`python3.14 -m venv .venv-314`) instead of installing system-wide |
 | **No `pyarrow` module** on a fresh Python 3.14 install | Installed into the venv via `pip install pyarrow pandas` |
-| Issue says 3.13 returns `uuid.UUID` but my 3.13 venv also returned `bytes` with PyArrow 24.0.0 | Ran intermediate-type checks (`to_pylist()` vs `to_pandas()`) to isolate the failure to the pandas bridge, not Parquet I/O — see findings below |
+| Issue says 3.13 returns `uuid.UUID` but my 3.13 venv also returned `bytes` with PyArrow 24.0.0 | Ran intermediate-type checks (`to_pylist()` vs `to_pandas()`) to isolate the failure to the pandas bridge, not Parquet I/O - see findings below |
 | Full Arrow source build is heavy (CMake, C++ toolchain) | Used PyPI wheels for Phase II reproduction; source build deferred to Phase III for writing the fix |
 
 For Phase III I'll build PyArrow from source off `main` on the working branch so I can add a regression test and iterate on a fix without waiting on release wheels.
@@ -120,15 +120,15 @@ For Phase III I'll build PyArrow from source off `main` on the working branch so
    print(type(result_df.loc[0, "id"]))
    ```
 3. Run it: `python repro_uuid.py`
-4. **Expected:** `<class 'uuid.UUID'>` — the value written should roundtrip as a Python UUID object.
-5. **Actual (Python 3.14):** `<class 'bytes'>` — raw 16-byte blob instead of a UUID.
+4. **Expected:** `<class 'uuid.UUID'>` - the value written should roundtrip as a Python UUID object.
+5. **Actual (Python 3.14):** `<class 'bytes'>` - raw 16-byte blob instead of a UUID.
 6. To confirm the failure is in the pandas bridge (not Parquet I/O), add these checks:
    ```python
    print(read_table.column("id").type)                    # extension<arrow.uuid>
    print(type(read_table.column("id").to_pylist()[0]))    # uuid.UUID (works)
    print(type(read_table.to_pandas().loc[0, "id"]))        # bytes (broken)
    ```
-7. Repeat steps 1–6 on Python 3.13 as a control. Parquet schema and `to_pylist()` behave identically; `to_pandas()` returns `bytes` on both with PyArrow 24.0.0.
+7. Repeat steps 1-6 on Python 3.13 as a control. Parquet schema and `to_pylist()` behave identically; `to_pandas()` returns `bytes` on both with PyArrow 24.0.0.
 
 ### Reproduction Evidence
 
@@ -148,17 +148,17 @@ For Phase III I'll build PyArrow from source off `main` on the working branch so
 **Root cause (not just symptom):** `UuidType` never implemented `to_pandas_dtype()`, so `_array_like_to_pandas()` in `array.pxi` falls through to the generic C++ `ConvertArrayToPandas` converter, which materializes the underlying `fixed_size_binary(16)` storage as raw `bytes`. The symptom is "bytes instead of UUID on 3.14"; the cause is a missing pandas dtype mapping on a canonical extension type that was added without a corresponding `to_pandas()` path.
 
 **When was this gap introduced?** Used `git log` on the upstream repo:
-- `2328b6e` (2024-08-26) — [GH-15058](https://github.com/apache/arrow/pull/37298): native UUID extension type added (`UuidType`, `UuidScalar.as_py()`)
-- `75acf37` (2025-04-21) — [GH-43807](https://github.com/apache/arrow/pull/45866): Parquet read/write support for UUID added
+- `2328b6e` (2024-08-26) - [GH-15058](https://github.com/apache/arrow/pull/37298): native UUID extension type added (`UuidType`, `UuidScalar.as_py()`)
+- `75acf37` (2025-04-21) - [GH-43807](https://github.com/apache/arrow/pull/45866): Parquet read/write support for UUID added
 - Neither commit added `to_pandas_dtype()` on `UuidType`. The gap has existed since UUID support landed; Python 3.14 / pandas 3.0 likely exposed it because downstream test suites (e.g. `pandas-dev/pandas#65647`) now assert `to_pandas()` roundtrips.
 
 **Relevant code paths identified:**
-- `python/pyarrow/types.pxi` — `UuidType`, `UuidScalar`, `UuidArray` definitions
-- `python/pyarrow/scalar.pxi` — `UuidScalar.as_py()` correctly returns `UUID(bytes=...)`
-- `python/pyarrow/array.pxi` — `_array_like_to_pandas()` extension type branch
-- `python/pyarrow/pandas_compat.py` — `_get_extension_dtypes()` for table-level conversion
-- `python/pyarrow/public-api.pxi` — registers `arrow.uuid` extension on Parquet read
-- `python/pyarrow/tests/parquet/test_data_types.py` — existing `test_uuid_extension_type()` (roundtrip at Arrow level, no `to_pandas` assertion)
+- `python/pyarrow/types.pxi` - `UuidType`, `UuidScalar`, `UuidArray` definitions
+- `python/pyarrow/scalar.pxi` - `UuidScalar.as_py()` correctly returns `UUID(bytes=...)`
+- `python/pyarrow/array.pxi` - `_array_like_to_pandas()` extension type branch
+- `python/pyarrow/pandas_compat.py` - `_get_extension_dtypes()` for table-level conversion
+- `python/pyarrow/public-api.pxi` - registers `arrow.uuid` extension on Parquet read
+- `python/pyarrow/tests/parquet/test_data_types.py` - existing `test_uuid_extension_type()` (roundtrip at Arrow level, no `to_pandas` assertion)
 
 ---
 
@@ -166,11 +166,11 @@ For Phase III I'll build PyArrow from source off `main` on the working branch so
 
 ### Analysis
 
-The bug is not in Parquet serialization — UUID data is stored and read back as `extension<arrow.uuid>` with `fixed_size_binary(16)` storage in both Python versions. The regression is in how PyArrow converts that extension array to a pandas Series via `to_pandas()`.
+The bug is not in Parquet serialization - UUID data is stored and read back as `extension<arrow.uuid>` with `fixed_size_binary(16)` storage in both Python versions. The regression is in how PyArrow converts that extension array to a pandas Series via `to_pandas()`.
 
 The conversion logic in `_array_like_to_pandas` checks whether an extension type provides a pandas dtype via `to_pandas_dtype()`. If the returned dtype has `__from_arrow__`, it uses that for a typed conversion. `UuidType` has no such mapping, so PyArrow delegates to the generic C++ converter, which materializes the storage bytes rather than calling `UuidScalar.as_py()`.
 
-The fix should ensure that when `to_pandas()` encounters an `extension<arrow.uuid>` column, the result contains `uuid.UUID` objects — matching what `to_pylist()` already produces.
+The fix should ensure that when `to_pandas()` encounters an `extension<arrow.uuid>` column, the result contains `uuid.UUID` objects - matching what `to_pylist()` already produces.
 
 ### Proposed Solution (Phase II plan)
 
@@ -179,7 +179,7 @@ Teach the `to_pandas()` path to handle `UuidType` the same way the native Arrow 
 1. **Implement `to_pandas_dtype()` on `UuidType`** that returns a pandas-compatible dtype with `__from_arrow__`, converting via `UuidScalar.as_py()`. This follows the pattern used by other extension types (e.g. `ExampleUuidType` in the test suite).
 2. **Add a special case in `_array_like_to_pandas`** for `UuidType` that converts through `to_pylist()` or iterates `UuidScalar.as_py()` before building the Series. Simpler but less extensible.
 
-Option 1 was the Phase II preferred plan — it matched existing PyArrow conventions and would also benefit `types_mapper`-based table conversions in `pandas_compat.py`.
+Option 1 was the Phase II preferred plan - it matched existing PyArrow conventions and would also benefit `types_mapper`-based table conversions in `pandas_compat.py`.
 
 ### Approach change (documented for Phase IV consistency)
 
@@ -198,11 +198,11 @@ Using UMPIRE framework (adapted):
 **Match:** Phase II matched `MyCustomIntegerType.to_pandas_dtype()` in `test_pandas.py`. After maintainer feedback, the match became @rok's C++ sketch in [rok/arrow#55](https://github.com/rok/arrow/pull/55) and existing UUID helpers in `helpers.cc`.
 
 **Edge cases to handle in the fix:**
-- **Null UUIDs** — a nullable UUID column should roundtrip as `None`, not empty bytes
-- **Empty tables** — `to_pandas()` on a zero-row UUID column should not crash
-- **`types_mapper` override** — if a caller passes a custom mapper, it should take precedence over the default UUID mapping
-- **Parquet with `arrow_extensions_enabled=False`** — reading as plain `fixed_size_binary(16)` is expected to stay as bytes; only the extension-typed path needs UUID conversion
-- **NumPy conversion** — `to_numpy(zero_copy_only=False)` should return storage `bytes`, not `uuid.UUID`
+- **Null UUIDs** - a nullable UUID column should roundtrip as `None`, not empty bytes
+- **Empty tables** - `to_pandas()` on a zero-row UUID column should not crash
+- **`types_mapper` override** - if a caller passes a custom mapper, it should take precedence over the default UUID mapping
+- **Parquet with `arrow_extensions_enabled=False`** - reading as plain `fixed_size_binary(16)` is expected to stay as bytes; only the extension-typed path needs UUID conversion
+- **NumPy conversion** - `to_numpy(zero_copy_only=False)` should return storage `bytes`, not `uuid.UUID`
 
 **Plan (as executed in Phase III/IV):**
 1. Open PR against `apache/arrow` `main` with failing/passing regression coverage for UUID → pandas.
@@ -262,9 +262,9 @@ Also spot-checked `to_pylist()` still returns `uuid.UUID` (unchanged).
 - Read CONTRIBUTING.md and inspected `.github/workflows/python.yml` for CI test patterns
 - Cloned fork locally; set up Python 3.13 / 3.14 venvs (resolved PEP 668 blocker)
 - Reproduced the issue using the script from [#50312](https://github.com/apache/arrow/issues/50312)
-- Confirmed Parquet roundtrip preserves `extension<arrow.uuid>` — the bug is in `to_pandas()`, not Parquet I/O
+- Confirmed Parquet roundtrip preserves `extension<arrow.uuid>` - the bug is in `to_pandas()`, not Parquet I/O
 - Traced the failure to `_array_like_to_pandas()` in `array.pxi` where `UuidType` lacks `to_pandas_dtype()`
-- Used `git log` to date the gap: UUID + Parquet support landed in 2024–2025 without a pandas conversion path
+- Used `git log` to date the gap: UUID + Parquet support landed in 2024-2025 without a pandas conversion path
 - Identified `MyCustomIntegerType.to_pandas_dtype()` in `test_pandas.py` as the pattern to follow
 - Drafted fix plan with edge cases (nulls, empty tables, `types_mapper`, `arrow_extensions_enabled=False`)
 
@@ -279,8 +279,8 @@ Also spot-checked `to_pylist()` still returns `uuid.UUID` (unchanged).
 - @rok reviewed again: "I have a potential performance improvement suggestion, but other than that this looks pretty good."
 - Review note on `python/pyarrow/src/arrow/python/helpers.cc`: creating a new kwargs dict for every UUID value was unnecessary; pass a reused empty kwargs into `UuidFromBytes` instead
 - Addressed that feedback with two commits:
-  - [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9) — `GH-50312: [Python] Reuse empty kwargs`
-  - [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574) — `GH-50312: [Python] Use shared empty tuple constant for UUID construction`
+ - [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9) - `GH-50312: [Python] Reuse empty kwargs`
+ - [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574) - `GH-50312: [Python] Use shared empty tuple constant for UUID construction`
 - Later round: @rok asked that UUID `to_numpy` return storage `bytes`; addressed in [`a4f309b`](https://github.com/apache/arrow/pull/50325/commits/a4f309b)
 - PR approved by @rok and @AlenkaF; still open against upstream `main` awaiting merge
 
@@ -288,12 +288,12 @@ Also spot-checked `to_pylist()` still returns `uuid.UUID` (unchanged).
 
 - **Files modified:** `python/pyarrow/src/arrow/python/helpers.cc`, `helpers.h`, `arrow_to_pandas.cc`, `python/pyarrow/tests/parquet/test_data_types.py`, `python/pyarrow/tests/test_extension_type.py`
 - **Key commits:**
-  - [`f71b3a2`](https://github.com/apache/arrow/pull/50325/commits/f71b3a2) — C++ UUID → pandas conversion (integrated proposal)
-  - [`b8c8338`](https://github.com/apache/arrow/pull/50325/commits/b8c8338) — avoid per-element allocations
-  - [`352cafd`](https://github.com/apache/arrow/pull/50325/commits/352cafd) — move UUID construction into `helpers.cc` (per @pitrou)
-  - [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9) — reuse empty kwargs
-  - [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574) — shared empty tuple constant
-  - [`a4f309b`](https://github.com/apache/arrow/pull/50325/commits/a4f309b) — UUID `to_numpy` returns bytes
+ - [`f71b3a2`](https://github.com/apache/arrow/pull/50325/commits/f71b3a2) - C++ UUID → pandas conversion (integrated proposal)
+ - [`b8c8338`](https://github.com/apache/arrow/pull/50325/commits/b8c8338) - avoid per-element allocations
+ - [`352cafd`](https://github.com/apache/arrow/pull/50325/commits/352cafd) - move UUID construction into `helpers.cc` (per @pitrou)
+ - [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9) - reuse empty kwargs
+ - [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574) - shared empty tuple constant
+ - [`a4f309b`](https://github.com/apache/arrow/pull/50325/commits/a4f309b) - UUID `to_numpy` returns bytes
 - **Approach decisions:** Started from Phase II Python dtype plan; switched to @rok's C++ conversion path after review; then iterated on allocation reuse and NumPy storage semantics.
 
 ---
@@ -318,13 +318,13 @@ Also spot-checked `to_pylist()` still returns `uuid.UUID` (unchanged).
 | Date | Feedback | My response | Commit ref(s) |
 |------|----------|-------------|----------------|
 | 2026-07-06 | @rok: pandas 2.x/3.x reshape concern; prefer 1-D `__from_arrow__` + reshape in DataFrame path; suggested stronger UUID→pandas test | Applied both suggestions; replied on the review threads | early PR iterations (pre-C++ rewrite) |
-| 2026-07-16 | (nudge) ready for another look | @mentioned @rok asking for re-review | — |
+| 2026-07-16 | (nudge) ready for another look | @mentioned @rok asking for re-review | - |
 | 2026-07-21 | @rok: prefer C++ UUID conversion over Python compat layer ([rok/arrow#55](https://github.com/rok/arrow/pull/55)); asked if I could continue that way | Agreed (2026-07-23); rewrote approach around the proposal | leading into [`f71b3a2`](https://github.com/apache/arrow/pull/50325/commits/f71b3a2) |
 | 2026-07-27 | (status) integrated proposal; round-trip passing; finishing last pass | Posted update thanking @rok for the proposal | [`f71b3a2`](https://github.com/apache/arrow/pull/50325/commits/f71b3a2) |
 | 2026-07-29 | @pitrou: factor UUID support into existing `helpers.cc` | Moved construction into helpers | [`352cafd`](https://github.com/apache/arrow/pull/50325/commits/352cafd) |
-| 2026-08-05 | @rok: "potential performance improvement… otherwise looks pretty good" — reuse empty kwargs instead of per-value dict in `helpers.cc` | Implemented reuse + shared empty tuple constant | [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9), [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574) |
+| 2026-08-05 | @rok: "potential performance improvement... otherwise looks pretty good" - reuse empty kwargs instead of per-value dict in `helpers.cc` | Implemented reuse + shared empty tuple constant | [`ff16379`](https://github.com/apache/arrow/pull/50325/commits/ff163797f2b635d43dd4b5584698cee07c0d5bf9), [`2f35759`](https://github.com/apache/arrow/pull/50325/commits/2f35759533ba83986d9d3938b45eb96186929574) |
 | 2026-08-10 | @rok: UUID `to_numpy` should return storage `bytes` | Added behavior + test | [`a4f309b`](https://github.com/apache/arrow/pull/50325/commits/a4f309b) |
-| 2026-08-10+ | @rok LGTM / APPROVED; @AlenkaF APPROVED | Thanked reviewers; credited @rok's proposal | — |
+| 2026-08-10+ | @rok LGTM / APPROVED; @AlenkaF APPROVED | Thanked reviewers; credited @rok's proposal | - |
 
 ---
 
@@ -339,9 +339,9 @@ Also spot-checked `to_pylist()` still returns `uuid.UUID` (unchanged).
 
 ### Challenges Overcome
 
-- Initial mental model ("Python 3.14 regression") was wrong; reproduction on 3.10–3.14 showed a missing feature path exposed by newer downstream tests.
+- Initial mental model ("Python 3.14 regression") was wrong; reproduction on 3.10-3.14 showed a missing feature path exposed by newer downstream tests.
 - First PR approach was acceptable as a spike, but maintainers correctly pushed for C++ conversion; rewriting mid-review without losing test coverage took discipline.
-- Review loops spanned pandas reshape quirks, helper factoring, allocation reuse, and NumPy semantics — each needed a concrete follow-up commit, not just agreement in chat.
+- Review loops spanned pandas reshape quirks, helper factoring, allocation reuse, and NumPy semantics - each needed a concrete follow-up commit, not just agreement in chat.
 
 ### What I'd Do Differently Next Time
 
@@ -357,10 +357,10 @@ If your first patch matches a nearby Python helper but a maintainer sketches a C
 
 ## Resources Used
 
-- [apache/arrow#50312 — FIXED_LEN_BYTE_ARRAY fails to cast to UUID on Python 3.14](https://github.com/apache/arrow/issues/50312)
-- [apache/arrow#50325 — PR: Fix UUID extension type round-trip to pandas](https://github.com/apache/arrow/pull/50325)
-- [rok/arrow#55 — C++ UUID conversion proposal](https://github.com/rok/arrow/pull/55)
-- [pandas-dev/pandas#65647 — upstream UUID Parquet tests](https://github.com/pandas-dev/pandas/pull/65647)
+- [apache/arrow#50312 - FIXED_LEN_BYTE_ARRAY fails to cast to UUID on Python 3.14](https://github.com/apache/arrow/issues/50312)
+- [apache/arrow#50325 - PR: Fix UUID extension type round-trip to pandas](https://github.com/apache/arrow/pull/50325)
+- [rok/arrow#55 - C++ UUID conversion proposal](https://github.com/rok/arrow/pull/55)
+- [pandas-dev/pandas#65647 - upstream UUID Parquet tests](https://github.com/pandas-dev/pandas/pull/65647)
 - [My fork: parker-cassar/arrow](https://github.com/parker-cassar/arrow)
 - [Arrow Python development docs](https://arrow.apache.org/docs/developers/python/index.html)
 - [Arrow contributing guide](https://github.com/apache/arrow/blob/main/CONTRIBUTING.md)
